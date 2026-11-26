@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Smart Parking</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+ :root{--navy:#1F3A5F;--bg:#f4f6fa;--card:#fff;--line:#e3e8f0;--ink:#1d2433;--mute:#667085;
+       --ok:#1a7f37;--okbg:#e6f4ea;--bad:#b42318;--badbg:#fdecea;--warn:#b54708;--warnbg:#fff4e5;--idle:#667085;--idlebg:#eef0f3}
+ *{box-sizing:border-box}
+ body{margin:0;font-family:"Segoe UI",Calibri,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+ header{background:var(--navy);color:#fff;padding:22px 16px}
+ header div,main{max-width:980px;margin:0 auto}
+ header h1{margin:0;font-size:24px;letter-spacing:.2px} header p{margin:4px 0 0;opacity:.8;font-size:14px}
+ main{padding:20px 16px 40px}
+ .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:18px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+ h2{margin:0 0 12px;font-size:17px;color:var(--navy)}
+ #msg{padding:12px 14px;border-radius:8px;margin-bottom:18px;background:#e8edf5;color:var(--navy);font-size:14px}
+ #msg.ok{background:var(--okbg);color:var(--ok)} #msg.err{background:var(--badbg);color:var(--bad)}
+ .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+ label{display:block;font-size:12px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.4px}
+ input{width:100%;margin-top:5px;padding:9px 10px;border:1px solid #cfd6e2;border-radius:7px;font-size:14px;background:#fff}
+ input:focus{outline:2px solid #9db6dc;border-color:var(--navy)}
+ .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:end}
+ .actions label{width:120px}
+ button{font-size:14px;padding:9px 16px;border-radius:7px;border:1px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer;font-weight:600}
+ button:hover{background:#eef2f9} button.primary{background:var(--navy);color:#fff} button.primary:hover{background:#17304f}
+ button.small{padding:5px 10px;font-size:12px;color:var(--bad);border-color:var(--bad)}
+ .tablewrap{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:14px}
+ th{background:#f0f3f8;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--mute)}
+ th,td{padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap} tr:hover td{background:#fafbfd}
+ .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+ .CONFIRMED,.AVAILABLE{background:var(--okbg);color:var(--ok)} .COMPLETED{background:#e6eefb;color:#1f4f9a}
+ .CANCELLED,.NO_SHOW,.OCCUPIED{background:var(--badbg);color:var(--bad)} .RESERVED{background:var(--warnbg);color:var(--warn)}
+ .MAINTENANCE{background:var(--idlebg);color:var(--idle)}
+ .zone{margin-bottom:14px} .zone h3{margin:0 0 8px;font-size:14px;color:var(--ink)}
+ .chips{display:flex;flex-wrap:wrap;gap:6px}
+ .chip{padding:6px 10px;border-radius:7px;font-size:12px;font-weight:600;min-width:52px;text-align:center}
+ .legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+ .empty{color:var(--mute);padding:14px;text-align:center}
+</style></head><body>
+<header><div><h1>Smart Parking Management</h1><p>Reserve, auto-allocate and track parking slots in real time</p></div></header>
+<main>
+<div id="msg">Ready.</div>
+
+<section class="card"><h2>Book a slot</h2>
+ <div class="grid">
+  <label>User ID<input id="uid" type="number" value="31"></label>
+  <label>Vehicle ID<input id="vid" type="number" value="31"></label>
+  <label>From<input id="start" type="datetime-local"></label>
+  <label>To<input id="end" type="datetime-local"></label>
+ </div>
+ <div class="actions">
+  <label>Slot ID<input id="slot" type="number" value="1"></label>
+  <button class="primary" onclick="reserve()">Reserve this slot</button>
+  <label style="margin-left:18px">Zone ID<input id="zone" type="number" value="1"></label>
+  <button onclick="allocate()">Auto-allocate in zone</button>
+ </div>
+</section>
+
+<section class="card"><h2>My reservations</h2>
+ <div class="tablewrap"><table id="res"><thead><tr><th>ID</th><th>Vehicle</th><th>Zone</th><th>Slot</th><th>From</th><th>To</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div>
+ <p style="margin:12px 0 0"><button onclick="loadRes()">Refresh</button></p>
+</section>
+
+<section class="card"><h2>Live slot availability</h2>
+ <div class="legend"><span class="pill AVAILABLE">Available</span><span class="pill RESERVED">Reserved</span><span class="pill OCCUPIED">Occupied</span><span class="pill MAINTENANCE">Maintenance</span></div>
+ <div id="av"></div>
+ <p style="margin:6px 0 0"><button onclick="loadAvail()">Refresh</button></p>
+</section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+function show(m){ const el=$("msg"); el.textContent=m; el.className = m.startsWith("SUCCESS") ? "ok" : (m.startsWith("FAILED") ? "err" : ""); }
+async function post(url, body){
+  const r = await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  return r.json();
+}
+const form = () => ({user_id:$("uid").value, vehicle_id:$("vid").value, start:$("start").value, end:$("end").value});
+async function reserve(){ const d=await post("/api/reserve",{...form(),slot_id:$("slot").value}); show(d.message); loadRes(); loadAvail(); }
+async function allocate(){ const d=await post("/api/allocate",{...form(),zone_id:$("zone").value});
+  show(d.message + (d.slot_id ? " (slot "+d.slot_id+")" : "")); loadRes(); loadAvail(); }
+async function cancelRes(id){ const d=await post("/api/cancel",{user_id:$("uid").value,res_id:id}); show(d.message); loadRes(); loadAvail(); }
+async function loadRes(){
+  const rows = await (await fetch("/api/reservations?user_id="+$("uid").value)).json();
+  $("res").tBodies[0].innerHTML = rows.length ? rows.map(r=>`<tr><td>${r.res_id}</td><td>${r.reg_no}</td><td>${r.zone_name}</td><td>${r.slot_code}</td>
+   <td>${r.start_time}</td><td>${r.end_time}</td><td><span class="pill ${r.status}">${r.status}</span></td>
+   <td>${r.status==="CONFIRMED"?`<button class="small" onclick="cancelRes(${r.res_id})">Cancel</button>`:""}</td></tr>`).join("")
+   : `<tr><td colspan="8" class="empty">No reservations for this user yet.</td></tr>`;
+}
+async function loadAvail(){
+  const rows = await (await fetch("/api/availability")).json();
+  const zones = {};
+  rows.forEach(r => (zones[r.zone_name] = zones[r.zone_name] || []).push(r));
+  $("av").innerHTML = Object.keys(zones).map(z => `<div class="zone"><h3>${z}</h3><div class="chips">`
+    + zones[z].map(s => `<span class="chip ${s.current_status}" title="${s.current_status}">${s.slot_code}</span>`).join("")
+    + `</div></div>`).join("");
+}
+function pad(n){ return String(n).padStart(2,"0"); }
+function fmt(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":00"; }
+const t = new Date(); t.setDate(t.getDate()+2); t.setHours(10,0,0,0);
+const e = new Date(t); e.setHours(12);
+$("start").value = fmt(t); $("end").value = fmt(e);
+loadRes(); loadAvail();
+</script></body></html>

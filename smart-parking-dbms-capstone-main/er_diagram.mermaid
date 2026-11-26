@@ -1,0 +1,122 @@
+erDiagram
+    DEPARTMENT ||--o{ APP_USER : "belongs to (0..1)"
+    APP_USER ||--o{ VEHICLE : owns
+    VEHICLE_TYPE ||--o{ VEHICLE : classifies
+    VEHICLE_TYPE ||--o{ PARKING_SLOT : "fits"
+    PARKING_ZONE ||--|{ PARKING_SLOT : contains
+    VEHICLE ||--o{ RESERVATION : "is booked in"
+    PARKING_SLOT ||--o{ RESERVATION : "is reserved by"
+    APP_USER ||--o{ VISITOR : hosts
+    VISITOR ||--o{ VISITOR_PASS : receives
+    PARKING_SLOT ||--o{ VISITOR_PASS : "allocated to"
+    VEHICLE |o--o{ ENTRY_LOG : "enters (residents)"
+    VISITOR_PASS |o--o{ ENTRY_LOG : "enters (visitors)"
+    RESERVATION |o--o{ ENTRY_LOG : "fulfilled by"
+    PARKING_SLOT ||--o{ ENTRY_LOG : "used in"
+    ENTRY_LOG ||--o| EXIT_LOG : "closed by"
+    VEHICLE ||--o{ VIOLATION : commits
+    PARKING_SLOT |o--o{ VIOLATION : "occurred at"
+    VIOLATION_TYPE ||--o{ VIOLATION : categorises
+    SECURITY_STAFF |o--o{ VIOLATION : records
+    VIOLATION ||--o{ PAYMENT : "settled by"
+
+    DEPARTMENT {
+        int dept_id PK
+        string dept_name UK
+    }
+    APP_USER {
+        int user_id PK
+        string email UK
+        string phone
+        enum user_type
+        enum status
+        int dept_id FK
+    }
+    VEHICLE_TYPE {
+        int vtype_id PK
+        string type_name UK
+        int wheels
+    }
+    VEHICLE {
+        int vehicle_id PK
+        string reg_no UK
+        int owner_id FK
+        int vtype_id FK
+    }
+    PARKING_ZONE {
+        int zone_id PK
+        string zone_name UK
+        enum zone_category
+        decimal hourly_rate
+    }
+    PARKING_SLOT {
+        int slot_id PK
+        int zone_id FK
+        string slot_code
+        int vtype_id FK
+        enum status
+    }
+    RESERVATION {
+        int res_id PK
+        int vehicle_id FK
+        int slot_id FK
+        datetime start_time
+        datetime end_time
+        enum status
+    }
+    VISITOR {
+        int visitor_id PK
+        string vehicle_reg
+        int host_user_id FK
+    }
+    VISITOR_PASS {
+        int pass_id PK
+        string pass_code UK
+        int visitor_id FK
+        int slot_id FK
+        datetime valid_from
+        datetime valid_to
+    }
+    ENTRY_LOG {
+        int entry_id PK
+        int vehicle_id FK
+        int pass_id FK
+        int reservation_id FK
+        int slot_id FK
+        datetime entry_time
+    }
+    EXIT_LOG {
+        int exit_id PK
+        int entry_id FK
+        datetime exit_time
+        decimal fee_charged
+    }
+    VIOLATION_TYPE {
+        int vt_id PK
+        string type_code UK
+        decimal fine_amount
+    }
+    VIOLATION {
+        int violation_id PK
+        int vehicle_id FK
+        int vt_id FK
+        int recorded_by FK
+        enum status
+    }
+    PAYMENT {
+        int payment_id PK
+        int violation_id FK
+        decimal amount
+        enum status
+    }
+    SECURITY_STAFF {
+        int staff_id PK
+        string full_name
+        enum shift
+    }
+    AUDIT_LOG {
+        bigint audit_id PK
+        string table_name
+        string action
+        int record_id
+    }
